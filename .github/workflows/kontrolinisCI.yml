@@ -1,0 +1,41 @@
+name: Automated API tests using CI pipelines Postman with multi os
+
+on: push
+ 
+env:
+  POSTMAN_API_KEY: ${{ secrets.POSTMAN_API_KEY }}
+ 
+jobs:
+  automated-api-tests:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x'
+      - name: Install Newman
+        run: |
+          npm install -g newman
+          npm install -g newman-reporter-htmlextra
+      - name: Fetch Postman collection
+        run: |
+          curl -X GET "https://api.getpostman.com/collections/36297517-c6e1e2e0-2460-49ee-9036-726be3a2fea6" \
+            -H "X-Api-Key: ${POSTMAN_API_KEY}" > collection.json
+        shell: bash
+      - name: Fetch Postman Environment
+        run: |
+          curl -X GET "https://api.getpostman.com/environments/36297517-645b0e5d-1e0f-4e8a-8890-c11e2f983354" \
+            -H "X-Api-Key: ${POSTMAN_API_KEY}" > environment.json
+        shell: bash
+      - name: Run API test with Newman
+        run: |
+          newman run collection.json -e environment.json --reporters cli,htmlextra --reporter-htmlextra-export report-${{ matrix.os }}.html
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        with:
+          name: newman-report-${{ matrix.os }}
+          path: report-${{ matrix.os }}.html
